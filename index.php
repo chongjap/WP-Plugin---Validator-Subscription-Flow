@@ -166,10 +166,19 @@ if (!function_exists('base_url')) {
         add_action('init','prefix_check_short_code');
 
         function prefix_check_short_code() {
+          
 
             if (!session_id()) {
                 session_start();
             }
+
+            try {
+                unset($_SESSION['granted_access']);
+                unset($_SESSION['granted_access_reason']);
+            } catch (\Throwable $th) {
+                //throw $th;
+            }
+            
 
             $granted_access=true;
             $response_valid_pay_in_flow=null;    
@@ -179,16 +188,8 @@ if (!function_exists('base_url')) {
             $is_subscriber=( in_array( 'subscriber', (array) wp_get_current_user()->roles ) );
             //si es un subscriptor que intenta ver las paginas y tiene su pago vencido, se redirige al perfil para que
             // actualice su numero de orden de pago
-            if($in_fronted && $is_subscriber){
-                    $page_redirect_by_invalid_pay_subscription='/websitedomesa/wp-admin/profile.php';
-                    // en primer lugar se revisa la session
-                    unset($_SESSION['granted_access']);
-                    unset($_SESSION['granted_access_reason']);
-                    if(isset( $_SESSION['granted_access']) && !$_SESSION['granted_access']){
-                        
-                        header('Location: '.$page_redirect_by_invalid_pay_subscription);
-                        die();
-                    }else if(!isset( $_SESSION['granted_access'])){
+                if($is_subscriber){
+                    if(!isset( $_SESSION['granted_access'])){
                         // se obtiene el numero de la orden de pago del perfil
                         $number_order_pay_subscription_saved_profile= get_user_meta(wp_get_current_user()->ID, 'number_order_flow');
                         
@@ -205,21 +206,19 @@ if (!function_exists('base_url')) {
                             $_SESSION['granted_access_reason']='Numero de orden de pago faltante.';
                             $_SESSION['granted_access']= $granted_access=false;
                         }   
-                        
-                        if(!$granted_access){
-                            //si es un subscriptor con el pago vencido, no dejarlo ver ninguna pagina
-                            header('Location: '.$page_redirect_by_invalid_pay_subscription);
-                            die();
-                        }
-       
                     }
             
              // si es un subscriber que esta en el backend
             }else if(!$in_fronted && $is_subscriber){
-                unset($_SESSION['granted_access']);
-                unset($_SESSION['granted_access_reason']);
             }
-            
+
+            if($in_fronted && $is_subscriber){
+                $page_redirect_by_invalid_pay_subscription='/websitedomesa/wp-admin/profile.php';
+                if((isset( $_SESSION['granted_access']) && !$_SESSION['granted_access']) || !$granted_access){
+                    header('Location: '.$page_redirect_by_invalid_pay_subscription);
+                    die();
+                }
+            }
 
             /*
             ?>
@@ -232,7 +231,7 @@ if (!function_exists('base_url')) {
     function validate_payment_subscription($number_order_pay,$user_email){
 
         $granted_access=true;
-        $granted_access_reason=true;
+        $granted_access_reason="";
 
         $apiKey=get_option('vsf-apikey');
         $secretKey=get_option('vsf-apisecret');
@@ -244,17 +243,17 @@ if (!function_exists('base_url')) {
         ));
 
         if(isset($response_valid_pay_in_flow['paymentData']['date'])){
-            if(strtolower(trim($response_valid_pay_in_flow['payer']))!=strtolower(trim($user_email))){
-                $granted_access_reason='Orden de pago invalida.';
-                $granted_access=false;
-            }else{
+            //if(strtolower(trim($response_valid_pay_in_flow['payer']))!=strtolower(trim($user_email))){
+            //    $granted_access_reason='Orden de pago invalida.';
+            //    $granted_access=false;
+            //}else{
 
                 $timeSubscription=get_option('vsf-time-subscription');
                 if(!empty($timeSubscription) && is_numeric($timeSubscription)){
                     $date_limit_subscription=explode(" ",$response_valid_pay_in_flow['paymentData']['date'])[0];
                     $date_limit_subscription = new DateTime($date_limit_subscription);
     
-                    date_add($date_limit_subscription, date_interval_create_from_date_string('60 days'));
+                    date_add($date_limit_subscription, date_interval_create_from_date_string($timeSubscription+' days'));
                     $date_current = new DateTime(date_format(new DateTime(), 'Y-m-d'));
     
                     if ($date_limit_subscription < $date_current) {
@@ -262,7 +261,10 @@ if (!function_exists('base_url')) {
                        $granted_access=false;
                     }
                 }
-            }
+           // }
+        }else if(isset($response_valid_pay_in_flow['code']) && $response_valid_pay_in_flow['code']=="1700"){
+            $granted_access_reason='Orden de pago inexistente.';
+            $granted_access=false;
         }else{
             $granted_access_reason='No se ha podido comprobar el estatus de su orden de pago actual.';
             $granted_access=false;
