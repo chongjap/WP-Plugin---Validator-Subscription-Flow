@@ -213,9 +213,20 @@ if (!function_exists('base_url')) {
             }
 
             if($in_fronted && $is_subscriber){
-                $page_redirect_by_invalid_pay_subscription='/websitedomesa/wp-admin/profile.php';
+
+                $subdomain='websitedomesa/';
+
+
+                $page_redirect_by_invalid_pay_subscription='/'. $subdomain.'wp-admin/profile.php';
                 if((isset( $_SESSION['granted_access']) && !$_SESSION['granted_access']) || !$granted_access){
-                    header('Location: '.$page_redirect_by_invalid_pay_subscription);
+                        header('Location: '.$page_redirect_by_invalid_pay_subscription);
+                        die();
+                }
+
+                //si la persona esta visitando el home
+                if( $_SERVER['REQUEST_URI']=="/". $subdomain){
+                    $redirect_page=url_domain().'/'. $subdomain.'home-private';
+                    header('Location: '.$redirect_page);
                     die();
                 }
             }
@@ -226,6 +237,25 @@ if (!function_exists('base_url')) {
             <?php
             */
         } 
+
+
+    function url(){
+        return 
+           ( isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https' : 'http').'://'.
+            $_SERVER['SERVER_NAME'].'/'.
+            $_SERVER['REQUEST_URI']
+        ;
+    }
+
+    function url_domain(){
+        return 
+           ( isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https' : 'http').'://'.
+            $_SERVER['SERVER_NAME']
+        ;
+    }
+
+       
+        
     
         // validate_payment_subscription($number_order_pay_subscription_saved_profile,wp_get_current_user()->data->user_email)
     function validate_payment_subscription($number_order_pay,$user_email){
