@@ -49,6 +49,32 @@ License: GPL2
                                     value="<?php echo get_option('vsf-time-subscription'); ?>" />
                             
                             <br><br>
+
+                            <label style="width: 130px; display: inline-block;" for="vsf-link-payment">Enlace de pago (flow):&nbsp;</label>
+                            <input  type="text" 
+                                    name="vsf-link-payment" 
+                                    id="vsf-link-payment" 
+                                    value="<?php echo get_option('vsf-link-payment'); ?>" />
+
+                             <br><br>
+
+                            <label style="width: 130px; display: inline-block;" for="vsf-slug-home-subscriptor">Enlace permanente de página privada para subscriptores:&nbsp;</label>
+                            <input  type="text" 
+                                    name="vsf-slug-home-subscriptor" 
+                                    id="vsf-slug-home-subscriptor" 
+                                    value="<?php echo get_option('vsf-slug-home-subscriptor'); ?>" />
+
+                                    <br><br>
+
+                        <label style="width: 130px; display: inline-block;" for="vsf-subdomain">Subdominio general de sitio:&nbsp;</label>
+                        <input  type="text" 
+                                name="vsf-subdomain" 
+                                id="vsf-subdomain" 
+                                value="<?php echo get_option('vsf-subdomain'); ?>" />
+                                
+
+                                    
+
                             
                             <h3>Credenciales de integración con <a target="_blank" href="https://www.flow.cl/">Flow</a></h3>
                             <label style="width: 130px; display: inline-block;" for="vsf-apikey">ApiKey:&nbsp;</label>
@@ -64,7 +90,9 @@ License: GPL2
                                     id="vsf-apisecret" 
                                     value="<?php echo get_option('vsf-apisecret'); ?>" />
 
-
+                          
+                            
+                                    
 
                          
                             <?php submit_button(); ?>
@@ -89,6 +117,16 @@ License: GPL2
                         'text');
         register_setting('vsf-settings-group',
                         'vsf-apisecret',
+                        'text');
+
+        register_setting('vsf-settings-group',
+                        'vsf-link-payment',
+                        'text');
+        register_setting('vsf-settings-group',
+                        'vsf-slug-home-subscriptor',
+                        'text');
+        register_setting('vsf-settings-group',
+                        'vsf-subdomain',
                         'text');
     }
     add_action('admin_init','vsf_save_settings');
@@ -188,7 +226,7 @@ if (!function_exists('base_url')) {
             $is_subscriber=( in_array( 'subscriber', (array) wp_get_current_user()->roles ) );
             //si es un subscriptor que intenta ver las paginas y tiene su pago vencido, se redirige al perfil para que
             // actualice su numero de orden de pago
-                if($is_subscriber){
+            if($is_subscriber){
                     if(!isset( $_SESSION['granted_access'])){
                         // se obtiene el numero de la orden de pago del perfil
                         $number_order_pay_subscription_saved_profile= get_user_meta(wp_get_current_user()->ID, 'number_order_flow');
@@ -212,10 +250,17 @@ if (!function_exists('base_url')) {
             }else if(!$in_fronted && $is_subscriber){
             }
 
+            $subdomain=trim(get_option('vsf-subdomain')).'/';
+            if(empty($subdomain) || is_null($subdomain)){
+                $subdomain='';
+            }
+
+            $homePrivateToSubscriptor=trim(get_option('vsf-slug-home-subscriptor'));
+            if(empty($homePrivateToSubscriptor) || is_null($homePrivateToSubscriptor)){
+                $homePrivateToSubscriptor="";
+            }
+
             if($in_fronted && $is_subscriber){
-
-                $subdomain='websitedomesa/';
-
 
                 $page_redirect_by_invalid_pay_subscription='/'. $subdomain.'wp-admin/profile.php';
                 if((isset( $_SESSION['granted_access']) && !$_SESSION['granted_access']) || !$granted_access){
@@ -223,9 +268,17 @@ if (!function_exists('base_url')) {
                         die();
                 }
 
-                //si la persona esta visitando el home
-                if( $_SERVER['REQUEST_URI']=="/". $subdomain){
-                    $redirect_page=url_domain().'/'. $subdomain.'home-private';
+                //si el subscriptor esta visitando el home principal
+                if( $_SERVER['REQUEST_URI']=="/". $subdomain && ($homePrivateToSubscriptor!="")){
+                        //$redirect_page=url_domain().'/'. $subdomain.'home-private';
+                        $redirect_page=url_domain().'/'. $subdomain.$homePrivateToSubscriptor;
+                        header('Location: '.$redirect_page);
+                        die();
+                }
+
+            }else if($in_fronted){
+                if( $_SERVER['REQUEST_URI']=="/". $subdomain.$homePrivateToSubscriptor.'/'){
+                    $redirect_page=url_domain().'/'. $subdomain;
                     header('Location: '.$redirect_page);
                     die();
                 }
@@ -283,7 +336,7 @@ if (!function_exists('base_url')) {
                     $date_limit_subscription=explode(" ",$response_valid_pay_in_flow['paymentData']['date'])[0];
                     $date_limit_subscription = new DateTime($date_limit_subscription);
     
-                    date_add($date_limit_subscription, date_interval_create_from_date_string($timeSubscription+' days'));
+                    date_add($date_limit_subscription, date_interval_create_from_date_string($timeSubscription.' days'));
                     $date_current = new DateTime(date_format(new DateTime(), 'Y-m-d'));
     
                     if ($date_limit_subscription < $date_current) {
@@ -358,9 +411,16 @@ if (!function_exists('base_url')) {
                             if(isset($_SESSION['granted_access_reason'])){
                                 echo $_SESSION['granted_access_reason'];
                             }
+
+                            $linkPayment=trim(get_option('vsf-link-payment'));
+                            if(empty($linkPayment) || is_null($linkPayment)){
+                                $linkPayment="#";
+                            }
+
+
                         ?></span>
                         <br><br>
-                        <a class="button button-primary" href='https://www.flow.cl/btn.php?token=5f3a8rj' target='_self'>
+                        <a class="button button-primary" href='<?php echo $linkPayment ?>' target='_self'>
                             Pagar subscripción
                         </a>
 
